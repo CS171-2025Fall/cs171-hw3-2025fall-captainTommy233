@@ -134,14 +134,40 @@ Vec3f IntersectionTestIntegrator::Li(
   color = directLighting(scene, interaction,sampler);
   return color;
 }
-
 Vec3f IntersectionTestIntegrator::directLighting(
     ref<Scene> scene, SurfaceInteraction &interaction, Sampler &sampler) const {
-  Vec3f color(0, 0, 0);
-  Float dist_to_light = Norm(point_light_position - interaction.p);
-  Vec3f light_dir     = Normalize(point_light_position - interaction.p);
-  auto test_ray       = DifferentialRay(interaction.p, light_dir,1e-4f,dist_to_light-1e-4f);
+  Vec3f final_color(0, 0, 0);
+  
 
+  //directly define muliple light with rectangular shape here
+  struct Light {
+    enum Type { Point, Area };
+    Type type;
+    Vec3f position;    
+    Vec3f flux;        
+    
+
+
+
+    Vec3f u_axis;       
+    Vec3f v_axis;      
+    Vec3f normal;       
+    Float area;         
+  };
+   std::vector<Light> lights;
+
+  // point light
+  lights.push_back({Light::Point, point_light_position, point_light_flux});
+
+  lights.push_back({
+      Light::Area,
+      Vec3f(0.0f, 2.0f, 0.0f),     // Center
+      Vec3f(10.0f, 10.0f, 10.0f),  
+      Vec3f(1.0f, 0.0f, 0.0f),    
+      Vec3f(0.0f, 0.0f, 1.0f),  
+      Vec3f(0.0f, -1.0f, 0.0f),    
+      0.1f                        
+  });
   // TODO(HW3): Test for occlusion
   //
   // You should test if there is any intersection between interaction.p and
@@ -157,39 +183,105 @@ Vec3f IntersectionTestIntegrator::directLighting(
   //
   //    You can use iteraction.p to get the intersection position.
   //
+  for(const auto &light:lights){
+    Float pdf = 1.0f;
+
+    Vec3f light_sample_pos;
+    Vec3f light_intensity;
+    if (light.type == Light::Point) {
+      light_sample_pos = light.position;
+      light_intensity = light.flux;
+    } 
+    if(light.type == Light::Area){
+      Float u = (sampler.get1D() - 0.5f) * 2.0f;
+      Float v = (sampler.get1D() - 0.5f) * 2.0f;
+      
+      light_sample_pos = light.position + light.u_axis * u + light.v_axis * v;
+      Vec3f dir_out = Normalize(interaction.p - light_sample_pos);
+      Float cos_light = std::max(Dot(dir_out, light.normal), 0.0f);
+      if (cos_light <= 0.0f) continue; 
+      pdf= 1 / light.area;
+      
+      light_intensity = light.flux*cos_light;
+    }
+    Float dist_to_light = Norm(light_sample_pos - interaction.p);
+    Vec3f light_dir     = Normalize(light_sample_pos - interaction.p);
+    auto test_ray       = DifferentialRay(interaction.p, light_dir,1e-4f,dist_to_light-1e-4f);
+
+
   SurfaceInteraction shadow_interaction;
   if(scene->intersect(test_ray,shadow_interaction)){
-    return Vec3f(0.0f,0.0f,0.0f);
+    continue;
   }
-
-  // Not occluded, compute the contribution using perfect diffuse diffuse model
-  // Perform a quick and dirty check to determine whether the BSDF is ideal
-  // diffuse by RTTI
   const BSDF *bsdf      = interaction.bsdf;
   bool is_ideal_diffuse = dynamic_cast<const IdealDiffusion *>(bsdf) != nullptr;
-
   if (bsdf != nullptr && is_ideal_diffuse) {
-    // TODO(HW3): Compute the contribution
-    //
-    // You can use bsdf->evaluate(interaction) * cos_theta to approximate the
-    // albedo. In this homework, we do not need to consider a
-    // radiometry-accurate model, so a simple phong-shading-like model is can be
-    // used to determine the value of color.
-
-    // The angle between light direction and surface normal
     Float cos_theta =
         std::max(Dot(light_dir, interaction.normal), 0.0f);  // one-sided
-
-    // You should assign the value to color
-    // color = ...
     Vec3f rho = bsdf->evaluate(interaction);
     
-    color=rho*cos_theta*point_light_flux/(dist_to_light*dist_to_light);
-
+    Vec3f color=rho*cos_theta*light_intensity/(dist_to_light*dist_to_light*pdf);
+    final_color += color;
   }
-
-  return color;
 }
+
+  return final_color;
+}
+// Vec3f IntersectionTestIntegrator::directLighting(
+//     ref<Scene> scene, SurfaceInteraction &interaction, Sampler &sampler) const {
+//   Vec3f color(0, 0, 0);
+//   Float dist_to_light = Norm(point_light_position - interaction.p);
+//   Vec3f light_dir     = Normalize(point_light_position - interaction.p);
+//   auto test_ray       = DifferentialRay(interaction.p, light_dir,1e-4f,dist_to_light-1e-4f);
+
+//   // TODO(HW3): Test for occlusion
+//   //
+//   // You should test if there is any intersection between interaction.p and
+//   // point_light_position using scene->intersect. If so, return an occluded
+//   // color. (or Vec3f color(0, 0, 0) to be specific)
+//   //
+//   // You may find the following variables useful:
+//   //
+//   // @see bool Scene::intersect(const Ray &ray, SurfaceInteraction &interaction)
+//   //    This function tests whether the ray intersects with any geometry in the
+//   //    scene. And if so, it returns true and fills the interaction with the
+//   //    intersection information.
+//   //
+//   //    You can use iteraction.p to get the intersection position.
+//   //
+//   SurfaceInteraction shadow_interaction;
+//   if(scene->intersect(test_ray,shadow_interaction)){
+//     return Vec3f(0.0f,0.0f,0.0f);
+//   }
+
+//   // Not occluded, compute the contribution using perfect diffuse diffuse model
+//   // Perform a quick and dirty check to determine whether the BSDF is ideal
+//   // diffuse by RTTI
+//   const BSDF *bsdf      = interaction.bsdf;
+//   bool is_ideal_diffuse = dynamic_cast<const IdealDiffusion *>(bsdf) != nullptr;
+
+//   if (bsdf != nullptr && is_ideal_diffuse) {
+//     // TODO(HW3): Compute the contribution
+//     //
+//     // You can use bsdf->evaluate(interaction) * cos_theta to approximate the
+//     // albedo. In this homework, we do not need to consider a
+//     // radiometry-accurate model, so a simple phong-shading-like model is can be
+//     // used to determine the value of color.
+
+//     // The angle between light direction and surface normal
+//     Float cos_theta =
+//         std::max(Dot(light_dir, interaction.normal), 0.0f);  // one-sided
+
+//     // You should assign the value to color
+//     // color = ...
+//     Vec3f rho = bsdf->evaluate(interaction);
+    
+//     color=rho*cos_theta*point_light_flux/(dist_to_light*dist_to_light);
+
+//   }
+
+//   return color;
+// }
 
 /* ===================================================================== *
  *
@@ -197,7 +289,7 @@ Vec3f IntersectionTestIntegrator::directLighting(
  *
  * ===================================================================== */
 
-void PathIntegrator::render(ref<Camera> camera, ref<Scene> scene) {
+void PathIntegrator::render(ref<Camera> camera, ref<Scene> scene){
   // This is left as the next assignment
   1;
 }
@@ -234,6 +326,5 @@ Vec3f IncrementalPathIntegrator::Li(  // NOLINT
     ref<Scene> scene, DifferentialRay &ray, Sampler &sampler) const {
   // This is left as the next assignment
   return Vec3f(0, 0, 0);
-}
-
+    }
 RDR_NAMESPACE_END
