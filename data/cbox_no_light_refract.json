@@ -63,6 +63,15 @@
         0.065,
         0.05
       ]
+    },
+    "earthTex": {
+      "type": "image",               
+      "path": "textures/earth.exr", 
+      "tex_coordinate_generator": {
+        "type": "uv_mapping_2d",     
+        "scale": [1.0, 1.0],
+        "delta": [0.0, 0.0]
+      }
     }
   },
   "materials": {
@@ -77,6 +86,10 @@
     "red_diffuse": {
       "type": "diffuse",
       "texture_name": "red"
+    },
+    "earthDiffuse": {
+      "type": "diffuse",           
+      "texture_name": "earthTex"          
     },
     "perfect_refraction": {
       "type": "refraction",
@@ -119,10 +132,10 @@
         0.6
       ]
     },
-    {
+     {
       "type": "mesh",
       "path": "assets/cbox/tall_box.obj",
-      "material_name": "grey_diffuse",
+      "material_name": "earthDiffuse",
       "translate": [
         0.7,
         0,

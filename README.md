@@ -1,7 +1,7 @@
-# Assignment 4: Global Illumination
+# Assignment 3
 
-Name:  
-Student ID:  
+Name:  张境轩
+Student ID:  2023533003
 
 **Please write your Chinese name and your student ID in this README.**
 

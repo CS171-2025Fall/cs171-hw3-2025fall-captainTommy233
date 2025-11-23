@@ -162,7 +162,7 @@ Vec3f IntersectionTestIntegrator::directLighting(
   lights.push_back({
       Light::Area,
       Vec3f(0.0f, 2.0f, 0.0f),     // Center
-      Vec3f(10.0f, 10.0f, 10.0f),  
+      Vec3f(30.0f, 30.0f, 30.0f),  
       Vec3f(1.0f, 0.0f, 0.0f),    
       Vec3f(0.0f, 0.0f, 1.0f),  
       Vec3f(0.0f, -1.0f, 0.0f),    
