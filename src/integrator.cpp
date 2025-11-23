@@ -1,5 +1,5 @@
 #include "rdr/integrator.h"
-
+#include <iostream>
 #include <omp.h>
 
 #include "rdr/bsdf.h"
@@ -78,7 +78,8 @@ void IntersectionTestIntegrator::render(ref<Camera> camera, ref<Scene> scene) {
 Vec3f IntersectionTestIntegrator::Li(
     ref<Scene> scene, DifferentialRay &ray, Sampler &sampler) const {
   Vec3f color(0.0);
-
+  //multipul reflection
+  Vec3f throughput(1.0); 
   // Cast a ray until we hit a non-specular surface or miss
   // Record whether we have found a diffuse surface
   bool diffuse_found = false;
@@ -95,11 +96,12 @@ Vec3f IntersectionTestIntegrator::Li(
         dynamic_cast<const PerfectRefraction *>(interaction.bsdf) != nullptr;
 
     // Set the outgoing direction
+  
     interaction.wo = -ray.direction;
 
     if (!intersected) {
-      break;
     }
+
 
     if (is_perfect_refraction) {
       // We should follow the specular direction
@@ -112,10 +114,13 @@ Vec3f IntersectionTestIntegrator::Li(
       //
       // You should update ray = ... with the spawned ray
       Float pdf;
-      interaction.bsdf->sample(interaction, sampler, &pdf);
-      ray=interaction.spawnRay(interaction.wi);
+      Vec3f f = interaction.bsdf->sample(interaction, sampler, &pdf);
+      throughput *= f / pdf;
+
+      ray = interaction.spawnRay(interaction.wi);
       continue;
-    }
+}
+
 
     if (is_ideal_diffuse) {
       // We only consider diffuse surfaces for direct lighting
@@ -131,7 +136,7 @@ Vec3f IntersectionTestIntegrator::Li(
     return color;
   }
 
-  color = directLighting(scene, interaction,sampler);
+  color+= throughput * directLighting(scene, interaction,sampler);
   return color;
 }
 Vec3f IntersectionTestIntegrator::directLighting(
@@ -162,11 +167,11 @@ Vec3f IntersectionTestIntegrator::directLighting(
   lights.push_back({
       Light::Area,
       Vec3f(0.0f, 2.0f, 0.0f),     // Center
-      Vec3f(30.0f, 30.0f, 30.0f),  
+      Vec3f(10.0f, 10.0f, 10.0f),  
       Vec3f(1.0f, 0.0f, 0.0f),    
       Vec3f(0.0f, 0.0f, 1.0f),  
       Vec3f(0.0f, -1.0f, 0.0f),    
-      0.1f                        
+      0.5f                        
   });
   // TODO(HW3): Test for occlusion
   //
@@ -224,6 +229,7 @@ Vec3f IntersectionTestIntegrator::directLighting(
     final_color += color;
   }
 }
+
 
   return final_color;
 }
